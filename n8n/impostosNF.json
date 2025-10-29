@@ -1,0 +1,475 @@
+{
+  "name": "impostosNF",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taxes-nf",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        0
+      ],
+      "id": "c5118d46-6701-49e3-8d92-e473727ad79a",
+      "name": "Webhook",
+      "webhookId": "a9293c14-ba25-47a7-9b50-09492f16eee3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2896,
+        0
+      ],
+      "id": "4ac6e798-6018-4ee8-b455-553e256d0738",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://gov-service-mcp:8005",
+        "include": "selected",
+        "includeTools": [
+          "consultar_cnpj"
+        ],
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.2,
+      "position": [
+        528,
+        416
+      ],
+      "id": "28caf691-a24b-4718-be1d-76b957445872",
+      "name": "MCP Client"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $node[\"Webhook\"].json.body.nota_fiscal; }}",
+        "options": {
+          "systemMessage": "Você é um especialista em tributação e análise fiscal. Sua tarefa é processar os dados de uma Nota Fiscal Eletrônica (NF-e) fornecida em formato JSON. Com base nos dados de cnpj e do emitente e destinatario consulte os detalhes dos cnpjs com suas ferramentas e gere um array json com objetos com as seguinte formatacao:\nÉ ESSENCIAL QUE SUA RESPOSTA SEJA UNICAMENTE O JSON COM A FORMATACAO ABAIXO. NAO ADICIONE QUAISQUER OUTROS COMENTARIOS\n\n{\n  \"cnpj\": \"XXXXXXXXYYYYZZ\",\n  \"razao_social\": \"Nome da Empresa Ltda.\",\n  \"uf\": \"SP\",\n  \"situacao_simples_nacional\": \"OPTANTE_SN\" | \"NAO_OPTANTE_SN\" | \"EXCLUIDO_SN\",\n  \"data_inicio_simples_nacional\": \"YYYY-MM-DD\",\n  \"data_fim_simples_nacional\": \"YYYY-MM-DD\" (se aplicável),\n  \"contribuinte_icms\": true | false,\n  \"cnae_principal\": \"XXXX-X/XX\",\n  \"regime_tributario_previsto\": \"Simples Nacional\" | \"Lucro Presumido\" | \"Lucro Real\" // Inferido da situação do SN e outros indicadores\n}\n\n",
+          "maxIterations": 2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        384,
+        0
+      ],
+      "id": "06030bd6-9693-4091-a6df-5a38de88c70a",
+      "name": "enrich_cnpj"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($node[\"assemble_final_object\"].json) }} ",
+        "options": {
+          "systemMessage": "Você é um especialista em tributação e análise fiscal. Sua tarefa é processar os dados de uma Nota Fiscal Eletrônica (NF-e) e informações extras de contexto, ambos fornecidos em formato JSON. Com base nesses dados, você deve realizar os cálculos de tributos federais (PIS e COFINS) e estaduais (ICMS), e em seguida, identificar potenciais oportunidades de recuperação de crédito tributário.\nSua análise deve ser objetiva, detalhada e apresentar os resultados de forma clara. A saída final DEVE ser um objeto JSON válido. Caso haja informações ausentes ou ambíguas no JSON da NF-e e nas informações de contexto que impeçam um cálculo preciso, você deve indicar essa lacuna dentro do JSON de saída.\n\nParte 1: Entrada de Dados (JSON da Nota Fiscal)\n    • A entrada será um objeto JSON representando uma NF-e. Considere que o JSON conterá as informações padrão de uma NF-e, incluindo dados do emitente, destinatário, produtos/serviços, valores totais, e detalhes dos impostos.\n    • Você usará o JSON real da NF-e fornecido após este prompt.\nParte 2: Tarefas a Serem Executadas e Formato de Saída (JSON)\nVocê deve gerar um único objeto JSON como saída. Este objeto JSON deve conter as seguintes chaves e seus respectivos valores. Use null para valores que não puderam ser determinados ou não são aplicáveis.\n\n- SÓ RESPONDA COM O JSON NO FORMATO A SEGUIR. NÃO EMITA QUAISQUER OUTROS TIPOS DE COMENTARIOS\n- SÓ RECORRA AOS DADOS DE CONTEXTO CASO A NOTA FISCAL NAO OFERECA INFORMACOES SUFICIENTES\n\nOBS: O arquivo a seguir é um exemplo do formato desejado. Preencha conforme as regras estabelecidas.\n\ncodeJSON\n{\n  \"analise_fiscal\": {\n    \"info_nfe\": {\n      \"numero_nota\": \"[Valor]\",\n      \"chave_acesso\": \"[Valor]\",\n      \"data_emissao\": \"[Valor]\",\n      \"emitente\": {\n        \"cnpj\": \"[Valor]\",\n        \"razao_social\": \"[Valor]\",\n        \"uf\": \"[Valor]\",\n        \"crt\": \"[Valor_CRT_da_NFe]\",\n        \"regime_tributario_inferido\": \"[Simples Nacional|Lucro Presumido|Lucro Real|Nao Determinavel]\"\n      },\n      \"destinatario\": {\n        \"cnpj\": \"[Valor]\",\n        \"razao_social\": \"[Valor]\",\n        \"uf\": \"[Valor]\",\n        \"ind_ie_dest\": \"[Valor_indIEDest]\"\n      },\n      \"valores_totais\": {\n        \"valor_produtos\": \"[Valor]\",\n        \"valor_total_nfe\": \"[Valor]\",\n        \"valor_total_icms_destacado\": \"[Valor]\"\n      }\n    },\n    \"tributos_calculados\": {\n      \"pis_cofins\": {\n        \"regime_aplicado\": \"[Cumulativo|Nao Cumulativo|Nao Incidente|Nao Determinavel]\",\n        \"base_calculo_estimada\": \"[Valor]\",\n        \"aliquota_pis\": \"[Valor]\",\n        \"aliquota_cofins\": \"[Valor]\",\n        \"valor_pis_estimado\": \"[Valor]\",\n        \"valor_cofins_estimado\": \"[Valor]\",\n        \"valor_pis_cofins_destacado_nfe\": {\n          \"pis\": \"[Valor_destacado_se_houver]\",\n          \"cofins\": \"[Valor_destacado_se_houver]\"\n        },\n        \"observacoes\": \"[Texto livre sobre comparações ou detalhes]\"\n      },\n      \"icms_por_item\": [\n        {\n          \"numero_item\": \"[Valor]\",\n          \"ncm\": \"[Valor]\",\n          \"cst_csosn\": \"[Valor]\",\n          \"base_calculo\": \"[Valor]\",\n          \"aliquota_icms\": \"[Valor]\",\n          \"valor_icms\": \"[Valor]\",\n          \"situacao_icms\": \"[Tributado|Isento|Suspenso|Outros|Nao Aplicavel]\"\n        }\n        // ... (para cada item da NF-e)\n      ],\n      \"icms_geral\": {\n        \"potencial_difal\": \"[true|false]\",\n        \"observacoes_difal\": \"[Se potencial_difal for true, descrever brevemente a situação]\"\n      }\n    },\n    \"recuperacao_credito_expectativa\": {\n      \"oportunidades_potenciais\": {\n        \"icms\": {\n          \"credito_direto_nfe_entrada\": {\n            \"valor_potencial\": \"[Valor]\",\n            \"condicoes\": \"Potencial crédito de ICMS se o destinatário for contribuinte e utilizar o produto/serviço em sua atividade tributada.\"\n          }\n        },\n        \"pis_cofins\": {\n          \"credito_regime_nao_cumulativo\": {\n            \"valor_potencial_indeterminado\": \"true\",\n            \"condicoes\": \"Potencial crédito de PIS/COFINS se o destinatário estiver no regime Não Cumulativo e o item for caracterizado como insumo, bem para revenda ou ativo imobilizado, mesmo que não destacado na NF-e de origem. Requer análise contábil detalhada.\"\n          }\n        },\n        \"outras_oportunidades\": [\n          {\n            \"tipo\": \"Exclusao ICMS Base PIS/COFINS\",\n            \"condicoes\": \"Recomendável verificar se o emitente (ou o destinatário, se ele for o contribuinte de PIS/COFINS da operação) pode se beneficiar da exclusão do ICMS da base de cálculo de PIS/COFINS (Tema 69 STF).\"\n          },\n          {\n            \"tipo\": \"Analise Pagamentos Indevidos Anteriores\",\n            \"condicoes\": \"Recomendável verificar se há valores pagos a maior ou indevidamente em operações anteriores com produtos similares (se aplicável, com base no NCM ou tipo de produto).\"\n          }\n        ]\n      },\n      \"advertencias_limitacoes\": [\n        \"Esta análise é baseada exclusivamente nos dados fornecidos no JSON da NF-e e representa uma expectativa inicial. O cálculo exato e a efetiva recuperação de créditos dependem de uma análise contábil e fiscal completa da empresa, incluindo regime tributário, tipo de operação, alíquotas internas/interestaduais, e a legislação vigente.\",\n        \"As alíquotas e regras fiscais podem variar por estado e com o tempo. É imprescindível consultar um contador ou especialista tributário para confirmação.\"\n      ]\n    }\n  }\n}\nInstruções Específicas para Preenchimento do JSON:\n    • Valores Numéricos: Devem ser formatados como números (ex: 1000.00 em vez de \"1000.00\").\n    • Strings: Devem estar entre aspas duplas.\n    • Arrays: Use [] para listar itens (ex: icms_por_item).\n    • regime_tributario_inferido: Use as categorias Simples Nacional, Lucro Presumido, Lucro Real ou Nao Determinavel. A inferência deve ser feita principalmente pelo campo CRT do emitente (1 para Simples Nacional, 2 para Lucro Presumido, 3 para Lucro Real) e/ou pelos CSTs de PIS/COFINS e ICMS.\n    • regime_aplicado (PIS/COFINS): Use Cumulativo, Nao Cumulativo, Nao Incidente ou Nao Determinavel. A escolha deve ser consistente com o regime_tributario_inferido e os CSTs da NF-e (CST PIS 01 a 09 para não cumulativo; 30 a 99 para cumulativo, 08 para outras operações, 07 para isenção/suspensão).\n    • valor_pis_cofins_destacado_nfe: Preencha se a NF-e tiver campos de PIS/COFINS destacados (vPIS, vCOFINS). Caso contrário, coloque null.\n    • potencial_difal: true se a operação for interestadual para consumidor final não contribuinte (indIEDest = 9 ou vazio). Caso contrário, false.\n    • credito_direto_nfe_entrada: O valor_potencial deve ser o vICMS total destacado na nota, se ela for considerada de \"entrada\" (compra) para o destinatário. Se não for possível determinar a natureza da operação como entrada ou se o CST não permite crédito, valor_potencial deve ser null.\n    • valor_potencial_indeterminado: Para PIS/COFINS, é difícil determinar um valor exato de crédito apenas com uma nota de entrada, pois depende dos insumos e do regime do destinatário. Portanto, esta chave deve ser true, e as condições devem explicar a necessidade de análise aprofundada.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        2112,
+        0
+      ],
+      "id": "608dbdef-83ef-4f33-af19-0853359112b5",
+      "name": "tax_calc"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n//for (const item of $input.all()) {\n//  item.json.myNewField = 1;\n//}\n\nvar items= $node[\"Webhook\"].json.body.items;\nvar ncms = [];\nfor (const item of items)\n{\n  ncms.push(String(item[\"codigo_ncm_sh\"]))\n}\n\n\nreturn {ncms};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        0
+      ],
+      "id": "36aefd47-3040-4130-8252-4f36addfffd8",
+      "name": "gather_NCMS"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gov-service:8003/ncm/consultar_lote",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "6e407d33-a667-4976-a849-de744596c85f",
+      "name": "recover_ncm_taxes"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n//for (const item of $input.all()) {\n//  item.json.myNewField = 1;\n//}\n\nvar items= $node[\"Webhook\"].json.body.items;\nvar consultas = [];\nfor (const item of items)\n{\n  consultas.push(\n    {\n      \"uf_origem\":item[\"uf_emitente\"],\n      \"uf_destino\":item[\"uf_destinatario\"],\n      \"ncm\":String(item[\"codigo_ncm_sh\"])\n    }\n  )\n}\n\n\nreturn {consultas};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "0dbdebec-6b6a-4dec-97c7-c4f9bbd2d92f",
+      "name": "gather_icms_regs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n//for (const item of $input.all()) {\n//  item.json.myNewField = 1;\n//}\nvar nf_header= $node[\"Webhook\"].json.body.nota_fiscal;\nvar nf_items= $node[\"Webhook\"].json.body.items;\nvar taxes_ncm= $node[\"recover_ncm_taxes\"].json.resultados;\nvar taxes_icms= $node[\"recover_icms_taxes\"].json.resultados;\nvar cnpj_infos= $node[\"enrich_cnpj\"].json.output;\nvar tem_imposto = $node[\"Webhook\"].json.output;\nvar contexto_completo=\n  {\n    \"taxas_icms_por_NCM\":taxes_icms,\n    \"dados_cnpjs\": cnpj_infos,\n    \"taxas_pis_cofins_ipi_por_NCM\":taxes_ncm,\n    \n  };\nvar data={\n  \"nota_fiscal\":\n    {\n      \"cabecalho\":nf_header,\n      \"itens\":nf_items\n    }\n};\n\nif(tem_imposto==false)\n{\n  data[\"contexto\"]=contexto_completo;\n}\nelse\n{\n  data[\"contexto\"]={\n    \"dados_cnpjs\": cnpj_infos,\n  }\n}\n\n\n\n\n\nreturn data;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        0
+      ],
+      "id": "ab279282-e7f1-44a0-beb7-c8a7a3a576ae",
+      "name": "assemble_final_object"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://gov-service:8003/icms/consultar_lote",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        0
+      ],
+      "id": "b1b9cd39-cb7a-494b-86ea-98fe28f37b38",
+      "name": "recover_icms_taxes"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        384,
+        416
+      ],
+      "id": "6ce971ff-af77-4801-99b6-a259e9c48e79",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "C269j5OYfmCSF04M",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        368
+      ],
+      "id": "1bee39f9-f9ee-4954-a646-f327b89a479d",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "C269j5OYfmCSF04M",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://taxes-service:8002/analise_fiscal/processamento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=chave_acesso",
+              "value": "={{$node[\"Webhook\"].json.body.nota_fiscal.chave_acesso}}"
+            },
+            {
+              "name": "em_processamento",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -256,
+        0
+      ],
+      "id": "0bfe14b7-803b-40f8-bde7-425f439de615",
+      "name": "inicio_processo"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://taxes-service:8002/analise_fiscal",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "texto",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        0
+      ],
+      "id": "8f742d6d-129d-40a0-8ccc-23f7ed980ec5",
+      "name": "salvar_analise"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        272
+      ],
+      "id": "7ee5a597-43ca-4a07-aa2a-2ada4b3b8853",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "C269j5OYfmCSF04M",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $node[\"Webhook\"].json.body.items; }}",
+        "options": {
+          "systemMessage": "Verifique se o JSON de itens de nota fiscal que voce está recebendo conta com o Calculo de tributos discriminado nos itens. O formato da sua resposta deve ser true se os tributos forem encontrados ou false para dados de tributos inexistentes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -48,
+        0
+      ],
+      "id": "895410f7-5d0e-4b99-8cd9-e7daa41282ef",
+      "name": "itens_com_tributos"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "inicio_processo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "enrich_cnpj",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "enrich_cnpj": {
+      "main": [
+        [
+          {
+            "node": "gather_NCMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tax_calc": {
+      "main": [
+        [
+          {
+            "node": "salvar_analise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gather_NCMS": {
+      "main": [
+        [
+          {
+            "node": "recover_ncm_taxes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "recover_ncm_taxes": {
+      "main": [
+        [
+          {
+            "node": "gather_icms_regs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gather_icms_regs": {
+      "main": [
+        [
+          {
+            "node": "recover_icms_taxes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "assemble_final_object": {
+      "main": [
+        [
+          {
+            "node": "tax_calc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "recover_icms_taxes": {
+      "main": [
+        [
+          {
+            "node": "assemble_final_object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "enrich_cnpj",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "tax_calc",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "inicio_processo": {
+      "main": [
+        [
+          {
+            "node": "itens_com_tributos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "salvar_analise": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "itens_com_tributos",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "itens_com_tributos": {
+      "main": [
+        [
+          {
+            "node": "enrich_cnpj",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "FFTvWsh145uV1s5b"
+  },
+  "versionId": "d08afe9b-366b-46bd-af55-6b4af7c7fe0e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a9eb18941cdd92a4376c5bbb87bb8aaee6d7ab9047b2dcfdb327aec30c54faf2"
+  },
+  "id": "FFTvWsh145uV1s5b",
+  "tags": []
+}

@@ -1,0 +1,366 @@
+# Sistema de Gestão e Análise de Notas Fiscais Eletrônicas
+# .gitignore completo
+
+# ============================================================================
+# PYTHON - Serviços Backend (FastAPI)
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+htmlcov/
+.hypothesis/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+pipenv/
+poetry.lock
+
+# ============================================================================
+# NODE.JS - UI (Vue.js), n8n, Gov Service MCP
+# ============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+.cache/
+
+# Vue.js specific
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================================================
+# DOCKER
+# ============================================================================
+.dockerignore
+docker-compose.override.yml
+.docker/
+
+# ============================================================================
+# DADOS E VOLUMES - NÃO VERSIONAR
+# ============================================================================
+
+# Dados do PostgreSQL
+data/postgres_data/
+postgres_data/
+
+# Dados do RabbitMQ
+data/rabbitmq_data/
+rabbitmq_data/
+
+# Dados do Redis
+data/redis_data/
+redis_data/
+
+# Dados do n8n (workflows, configurações, logs)
+data/n8n_data/
+n8n_data/
+data/n8n_data/binaryData/
+data/n8n_data/database.sqlite
+data/n8n_data/database.sqlite-shm
+data/n8n_data/database.sqlite-wal
+data/n8n_data/*.log
+data/n8n_data/crash.journal
+data/n8n_data/nodes/node_modules/
+
+# Uploads e arquivos temporários
+uploads/
+uploads_data/
+services/load_service/uploads/
+*.xml
+*.zip
+
+# Arquivos de notas fiscais - PASTA INSUMOS COMPLETA
+insumos/
+
+# ============================================================================
+# LOGS
+# ============================================================================
+*.log
+logs/
+*.log.*
+n8nEventLog*.log
+crash.journal
+
+# ============================================================================
+# ENVIRONMENT VARIABLES
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+*.env
+
+# ============================================================================
+# IDEs E EDITORES
+# ============================================================================
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Cursor
+.cursor/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# JetBrains
+*.iml
+.idea/
+*.ipr
+*.iws
+.idea_modules/
+out/
+
+# ============================================================================
+# SISTEMA OPERACIONAL
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# ============================================================================
+# SERVIÇOS ESPECÍFICOS
+# ============================================================================
+
+# Load Service
+services/load_service/__pycache__/
+services/load_service/*.pyc
+services/load_service/uploads/*
+!services/load_service/uploads/.gitkeep
+
+# Onboarding Service
+services/onboarding_service/__pycache__/
+services/onboarding_service/*.pyc
+
+# Taxes Service
+services/taxes_service/__pycache__/
+services/taxes_service/*.pyc
+
+# Gov Service
+services/gov_service/__pycache__/
+services/gov_service/*.pyc
+
+# Gov Service MCP
+services/gov_service_mcp/node_modules/
+services/gov_service_mcp/package-lock.json
+
+# Site Service
+services/site_service/__pycache__/
+services/site_service/*.pyc
+
+# NF Agent
+services/nf_agent/__pycache__/
+services/nf_agent/*.pyc
+
+# UI Service
+services/ui/node_modules/
+services/ui/dist/
+services/ui/package-lock.json
+services/ui/.vite/
+
+# ============================================================================
+# NGINX
+# ============================================================================
+*.pid
+*.sock
+
+# ============================================================================
+# CERTIFICADOS E CHAVES
+# ============================================================================
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.csr
+ssl/
+certs/
+secrets/
+
+# ============================================================================
+# BACKUP E TEMPORÁRIOS
+# ============================================================================
+*.bak
+*.backup
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.~lock.*
+
+# ============================================================================
+# TESTES
+# ============================================================================
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+*.cover
+test-results/
+.test/
+
+# ============================================================================
+# DOCUMENTAÇÃO GERADA
+# ============================================================================
+site/
+docs/_build/
+docs/.doctrees/
+
+# ============================================================================
+# GIT
+# ============================================================================
+*.orig
+*.rej
+*.patch
+
+# ============================================================================
+# DADOS SENSÍVEIS
+# ============================================================================
+*.sqlite
+*.sqlite3
+*.db
+database.sqlite*
+*.dmp
+dump.sql
+backup.sql
+
+# ============================================================================
+# MISC
+# ============================================================================
+.~*
+*.bck
+TODO.txt
+NOTES.txt
+.scratch/
+

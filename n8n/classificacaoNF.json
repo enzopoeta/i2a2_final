@@ -1,0 +1,142 @@
+{
+  "name": "classificacaoNF",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nf-input",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4ca9fdad-b7fb-4cf6-99a3-0ac86561f430",
+      "name": "Webhook",
+      "webhookId": "a9293c14-ba25-47a7-9b50-09492f16eee3"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.nota_fiscal }}",
+        "options": {
+          "systemMessage": "Voce é um especialista em classificar notas ficais.\nReceberá dados de uma nota fiscal brasileira em formato JSON e de acordo com estes dados deve classifica-la em uma das 3 categorias COMPRA , VENDA ou SERVICO.\n- Só responda com a sua classificacao e não faça comentários e observações"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "620bca6e-e803-49eb-9f31-61c85626becf",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n//for (const item of $input.all()) {\n//#  item.json.myNewField = 1;\n//#}\nlet nota_completa=$node[\"Webhook\"].json.body;\nnota_completa.nota_fiscal.classificacao=$input.all()[0].json.output;\n\nreturn nota_completa;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "68c6baf9-9816-4662-9a6d-e7ec7bb57f1f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        768,
+        0
+      ],
+      "id": "a7f31445-041e-4c0a-a35e-5c08ddf107b8",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        208,
+        272
+      ],
+      "id": "2862da15-514b-473d-92bf-23559284ff8b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "C269j5OYfmCSF04M",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7ab57b2f-d2c7-4992-a81d-fb23025e5bce",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a9eb18941cdd92a4376c5bbb87bb8aaee6d7ab9047b2dcfdb327aec30c54faf2"
+  },
+  "id": "4Vn4Cks3HxooaLzF",
+  "tags": []
+}

@@ -1,0 +1,281 @@
+version: '3.8'
+services:
+
+  loader-service:
+    build:
+      context: ./services/load_service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/notasfiscais
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=notasfiscais
+      - UPLOAD_DIR=/app/uploads
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./services/load_service:/app
+      - uploads_data:/app/uploads
+    networks:
+      - app-network
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./data/n8n_data:/home/node/.n8n
+    environment:
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_FEATURE_FLAG_MCP=true
+    networks:
+      - app-network
+  
+  ui:
+    build:
+      context: ./services/ui
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - loader-service
+      - nf_agent
+    networks:
+      - app-network
+
+  onboarding-service:
+    build:
+      context: ./services/onboarding_service
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8001"
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=notasfiscais
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=admin
+      - RABBITMQ_PASS=admin
+      - RABBITMQ_QUEUE=notas_fiscais
+      - RABBITMQ_DLQ=notas_fiscais_dlq
+      - RABBITMQ_MAX_RETRIES=3
+      - SERVICE_PORT=8001
+      - CLASSIFICATION_SERVICE_URL=http://n8n:5678/webhook/nf-input
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./services/onboarding_service:/app
+    networks:
+      - app-network
+
+  taxes-service:
+    build:
+      context: ./services/taxes_service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=notasfiscais
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=admin
+      - RABBITMQ_PASS=admin
+      - RABBITMQ_TAXES_QUEUE=taxes_calculation
+      - RABBITMQ_TAXES_DLQ=taxes_calculation_dlq
+      - RABBITMQ_MAX_RETRIES=3
+      - SERVICE_PORT=8002
+      - TAXES_WEBHOOK_URL=http://n8n:5678/webhook/taxes-nf
+      #- TAXES_WEBHOOK_URL=http://n8n:5678/webhook-test/taxes-nf
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./services/taxes_service:/app
+    networks:
+      - app-network
+
+  gov-service:
+    build:
+      context: ./services/gov_service
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - SERVICE_PORT=8003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/gov_service:/app
+    networks:
+      - app-network
+
+  gov-service-mcp:
+    build:
+      context: ./services/gov_service_mcp
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - TRANSPORT_MODE=http
+      - MCP_PORT=8005
+      - GOV_SERVICE_URL=http://gov-service:8003
+    depends_on:
+      - gov-service
+    volumes:
+      - ./services/gov_service_mcp:/app
+      - /app/node_modules
+    networks:
+      - app-network
+
+  site-service:
+    build:
+      context: ./services/site_service
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=notasfiscais
+      - SERVICE_PORT=8004
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./services/site_service:/app
+    networks:
+      - app-network
+
+  nf_agent:
+    build:
+      context: ./services/nf_agent
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - OLLAMA_HOST=192.168.0.120:11434
+      #- OLLAMA_MODEL=mistral-small3.1:24b-instruct-2503-q8_0
+      #- OLLAMA_MODEL=qwen2.5:32b-instruct-q8_0
+      #- OLLAMA_MODEL=qwen2.5-coder:32b-instruct-q8_0
+      - OLLAMA_MODEL=gpt-oss:20b
+      - OLLAMA_FUNCTION_CALLING=true
+      - OLLAMA_JSON_OUTPUT=true
+      - OLLAMA_VISION=false
+      - FILESYSTEM_MOUNT_PATH=/home/enzo/dev/autogen/fs
+      - FILESYSTEM_CONTAINER_PATH=/data
+      - MCP_FILESYSTEM_IMAGE=mcp/filesystem
+      - MCP_POSTGRES_IMAGE=mcp/postgres
+      - POSTGRES_URL=postgresql://postgres:postgres@192.168.0.157:5432/notasfiscais
+      - POSTGRES_DATABASE=notasfiscais
+      - POSTGRES_SCHEMA=public
+      - SERVICE_PORT=8001
+      - MAX_MESSAGES=50
+      - LOG_LEVEL=INFO
+      - OLLAMA2_HOST=192.168.0.120:11434
+      - OLLAMA2_MODEL=gpt-oss:20b
+      #- OLLAMA2_MODEL=qwen2.5:72b-instruct-q3_K_S
+      #- OLLAMA2_MODEL=granite3.3:8b
+      #- OLLAMA2_MODEL=qwen2.5:32b-instruct-q6_K
+      #- OLLAMA2_MODEL=qwen2.5:32b-instruct-q8_0
+      #- OLLAMA2_MODEL=qwen3:32b-q8_0
+      - OLLAMA2_FUNCTION_CALLING=true
+      - OLLAMA2_JSON_OUTPUT=true
+      - OLLAMA2_VISION=false
+    volumes:
+      - ./services/nf_agent:/app
+      - /var/run/docker.sock:/var/run/docker.sock  # Para permitir uso do Docker dentro do container
+      #- /home/enzo/dev/autogen/fs:/data  # Mount do filesystem para os agentes
+    networks:
+      - app-network
+    privileged: true  # Necessário para usar Docker dentro do container
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=notasfiscais
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+      - RABBITMQ_DEFAULT_VHOST=/
+    ports:
+      - "5672:5672"    # AMQP protocol port
+      - "15672:15672"  # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_data:
+  uploads_data:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge 
